@@ -65,7 +65,7 @@ it lays out what's actually available, by workflow, not by jargon, and
 you choose. Only setting up Windows games? Just touch the Windows
 Compatibility and GPU pages. Building a streaming rig? Add the Gaming and
 Audio pages too. Also want a coding environment on the same machine? Add
-Development. None of it is mutually exclusive, and none of it is forced —
+Development. None of it is mutually exclusive, and none of it is forced;
 the computer ends up shaped like whatever you actually told it to be.
 
 ## Why this exists
