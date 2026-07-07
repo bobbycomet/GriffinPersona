@@ -1,4 +1,7 @@
 # Griffin Persona
+<div align="center">
+<img width="300" height="300" alt="GriffinPersona" src="https://github.com/user-attachments/assets/998c4d2c-df5e-4aef-8141-9b0cfd5dcc78" />
+</div>
 
 **Griffin Persona** is the official welcome screen for Griffin Linux. It helps you get up and running by installing essential drivers and tailoring tools to your specific workflows. 
 
@@ -35,3 +38,11 @@ Or use your package installer or Gdebi
 <img width="1920" height="1080" alt="Screenshot_20260707_093723" src="https://github.com/user-attachments/assets/891cdcdd-5420-4fde-92f2-e8322906615c" />
 <img width="1920" height="1080" alt="Screenshot_20260707_093730" src="https://github.com/user-attachments/assets/8118507b-6821-41c8-9b16-1396233e9d7f" />
 <img width="1920" height="1080" alt="Screenshot_20260707_093737" src="https://github.com/user-attachments/assets/e3081645-2754-4d13-9a89-9db192a0c621" />
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/bobbycomet/Appify/main/Griffin-G.png" alt="Griffin Linux" width="15%"/>
+  <p><strong>Griffin Linux. Where power meets simplicity.</strong><br/>
+  Made with Windows switchers in mind. Built for everyone who wants a better PC.</p>
+</div>
+
+Griffin Persona is part of the Griffin Linux project. The name Griffin Persona, the Griffin Linux name, and associated icons are protected under the GPLv3 to preserve the integrity of the branding in all distributed versions.
