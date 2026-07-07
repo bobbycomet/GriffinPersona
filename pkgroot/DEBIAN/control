@@ -1,0 +1,20 @@
+Package: griffin-persona
+Version: 1.5.0
+Section: admin
+Priority: optional
+Architecture: amd64
+Maintainer: Bobby Comet
+Depends: python3 (>= 3.10), python3-pyqt6, polkitd, pkexec, pciutils, wget, ca-certificates, gnupg
+Recommends: wine, winetricks, vulkan-tools, mesa-vulkan-drivers, pipewire, wireplumber, mangohud, gamemode, ubuntu-drivers-common, vainfo
+Suggests: lutris, steam-installer, timeshift, flatpak, fwupd, vkmark
+Homepage: https://griffinlinux.org
+Description: Griffin Linux post-install configuration center
+ Griffin Persona builds your computer's persona: browsers and everyday
+ apps, Windows compatibility (Wine/Proton), GPU drivers, audio, gaming
+ tools, creative software, storage/reliability, and development basics.
+ Every change is previewed in plain language before it's applied, never
+ installed blindly. Includes a single-page system diagnostics checklist
+ with one-click repair.
+ .
+ Runs once automatically on first boot to introduce itself, then behaves
+ as an ordinary application reachable from the application menu.

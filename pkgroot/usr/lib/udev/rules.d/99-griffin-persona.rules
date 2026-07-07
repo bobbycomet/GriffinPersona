@@ -1,0 +1,9 @@
+# Griffin Persona — invalidate the hardware-detection cache when a GPU is
+# added or removed (eGPU dock plug/unplug, etc). This does not install or
+# configure anything by itself: it only drops a flag file that the GUI
+# reads to show "hardware changed, re-detection recommended" on the GPU &
+# Drivers page. /var/lib/griffin-postinstall is created by the package's
+# postinst script and is root-writable, which is fine here since udev rules
+# run as root via systemd-udevd.
+ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x030000", RUN+="/usr/bin/touch /var/lib/griffin-postinstall/hw-changed"
+ACTION=="remove", SUBSYSTEM=="pci", ATTR{class}=="0x030000", RUN+="/usr/bin/touch /var/lib/griffin-postinstall/hw-changed"

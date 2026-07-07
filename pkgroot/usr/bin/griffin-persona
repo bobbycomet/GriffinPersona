@@ -1,0 +1,4 @@
+#!/bin/sh
+# Griffin Persona launcher.
+export PYTHONPATH="/usr/lib/griffin-persona:${PYTHONPATH}"
+exec python3 -m griffin_persona "$@"

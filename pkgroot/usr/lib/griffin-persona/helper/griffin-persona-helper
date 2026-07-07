@@ -1,0 +1,395 @@
+#!/usr/bin/env python3
+"""
+griffin-persona-helper — the ONLY part of Griffin Persona that runs as root.
+
+This is invoked exclusively as:
+    pkexec /usr/lib/griffin-persona/griffin-persona-helper '<json request>'
+
+PolicyKit (see /usr/share/polkit-1/actions/com.griffinlinux.persona.policy)
+authorizes pkexec to run this exact, absolute path. Authentication is
+session-cached (auth_admin_keep) so a person applying several profiles in
+one sitting is only prompted once.
+
+Trust boundary: the GUI is NOT trusted input. Every request is re-checked
+here against hardcoded allow-lists — package names, repo definitions, and
+release-app ids are all baked into this file rather than accepted as free
+text from the caller. This file deliberately does not import anything from
+the GUI package so its allow-lists can't be altered by modifying the GUI.
+
+Always writes exactly one line of JSON to stdout:
+    {"ok": bool, "log": "...", "error": "..."}
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+STATE_DIR = Path("/var/lib/griffin-postinstall")
+HISTORY_FILE = STATE_DIR / "history.json"
+HW_FLAG = STATE_DIR / "hw-changed"
+
+PKG_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-]*(:i386)?$")
+
+
+class HelperError(Exception):
+    pass
+
+
+# Single source of truth: loaded from catalog.json, which sits one directory
+# above this helper (../catalog.json) in both the installed layout
+# (/usr/lib/griffin-persona/{catalog.json,helper/}) and the dev bundle.
+# This file is intentionally NOT imported from griffin_persona/ — the
+# helper's trust boundary depends on catalog.json's filesystem permissions
+# (root:root, 0644 once installed), not on which Python module reads it.
+_CATALOG_CANDIDATES = [
+    Path(__file__).resolve().parent.parent / "catalog.json",
+    Path("/usr/lib/griffin-persona/catalog.json"),
+]
+
+
+def _load_catalog() -> dict:
+    for path in _CATALOG_CANDIDATES:
+        if path.exists():
+            return json.loads(path.read_text())
+    raise HelperError("catalog.json not found — installation is corrupt.")
+
+
+try:
+    _CATALOG = _load_catalog()
+except HelperError as e:
+    print(json.dumps({"ok": False, "log": "", "error": str(e)}))
+    sys.exit(1)
+
+ALLOWED_PACKAGES = set(_CATALOG.get("allowed_packages", []))
+REPO_CATALOG = _CATALOG.get("repos", {})
+RELEASE_APP_CATALOG = _CATALOG.get("release_apps", {})
+
+
+def sh(cmd: list[str], log: list[str], timeout: int = 600, input_text: str | None = None) -> None:
+    log.append("$ " + " ".join(cmd))
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input_text)
+    except subprocess.TimeoutExpired:
+        raise HelperError(f"Timed out running: {' '.join(cmd)}")
+    if p.stdout:
+        log.append(p.stdout.strip())
+    if p.stderr:
+        log.append(p.stderr.strip())
+    if p.returncode != 0:
+        raise HelperError(f"Command failed ({p.returncode}): {' '.join(cmd)}")
+
+
+def ubuntu_codename(log: list[str]) -> str:
+    try:
+        out = subprocess.run(["lsb_release", "-cs"], capture_output=True, text=True, timeout=5)
+        codename = out.stdout.strip()
+        if codename:
+            return codename
+    except FileNotFoundError:
+        pass
+    log.append("lsb_release unavailable, defaulting codename to noble")
+    return "noble"
+
+
+def validate_packages(packages: list[str]) -> list[str]:
+    if not packages:
+        raise HelperError("No packages specified.")
+    bad = [p for p in packages if not PKG_NAME_RE.match(p) or p not in ALLOWED_PACKAGES]
+    if bad:
+        raise HelperError(f"Refusing to act on packages outside the allow-list: {bad}")
+    return packages
+
+
+def record_history(entry: dict) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    history = []
+    if HISTORY_FILE.exists():
+        try:
+            history = json.loads(HISTORY_FILE.read_text())
+        except json.JSONDecodeError:
+            history = []
+    entry["timestamp"] = datetime.now(timezone.utc).isoformat()
+    history.append(entry)
+    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    os.chmod(HISTORY_FILE, 0o644)
+
+
+def op_apt_install(req: dict, log: list[str]) -> None:
+    packages = validate_packages(req.get("packages", []))
+    needs_i386 = any(p.endswith(":i386") for p in packages)
+    if needs_i386:
+        sh(["dpkg", "--add-architecture", "i386"], log)
+    sh(["apt-get", "update"], log, timeout=300)
+    sh(["apt-get", "install", "-y"] + packages, log, timeout=1800)
+    record_history({"action": "apt_install", "packages": packages, "label": req.get("label", "")})
+
+
+def op_apt_remove(req: dict, log: list[str]) -> None:
+    packages = validate_packages(req.get("packages", []))
+    sh(["apt-get", "remove", "-y"] + packages, log, timeout=600)
+    record_history({"action": "apt_remove", "packages": packages, "label": req.get("label", "")})
+
+
+def op_enable_i386(req: dict, log: list[str]) -> None:
+    sh(["dpkg", "--add-architecture", "i386"], log)
+    sh(["apt-get", "update"], log, timeout=300)
+    record_history({"action": "enable_i386", "label": "Enabled i386 multiarch"})
+
+
+def op_install_nvidia_driver_auto(req: dict, log: list[str]) -> None:
+    """
+    Deliberately takes no package name from the GUI at all: this verb's
+    request body is just {"action": "install_nvidia_driver_auto"}. The
+    helper re-derives the correct driver itself, as root, via Ubuntu's own
+    detection tool — so there is no hardcoded version string to go stale
+    and nothing for a compromised GUI to smuggle through as a "driver name".
+    """
+    sh(["apt-get", "update"], log, timeout=300)
+    sh(["apt-get", "install", "-y", "ubuntu-drivers-common"], log, timeout=300)
+    sh(["ubuntu-drivers", "autoinstall"], log, timeout=1800)
+    record_history({"action": "install_nvidia_driver_auto", "label": req.get("label", "NVIDIA driver (auto-detected)")})
+
+
+def _nvidia_driver_version(log: list[str]) -> tuple[int, ...] | None:
+    try:
+        p = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return None
+    if p.returncode != 0 or not p.stdout.strip():
+        return None
+    raw = p.stdout.strip().splitlines()[0].strip()
+    try:
+        return tuple(int(x) for x in raw.split("."))
+    except ValueError:
+        log.append(f"Could not parse driver version string: {raw!r}")
+        return None
+
+
+def _merge_environment_file(path: Path, desired: dict[str, str]) -> None:
+    """
+    Idempotently set KEY="value" lines in an /etc/environment-style file:
+    updates a key in place if present, appends it if not, leaves every
+    other line untouched. Safe to call repeatedly with the same input.
+    """
+    content = path.read_text() if path.exists() else ""
+    lines = [l for l in content.splitlines() if l.strip()]
+    existing_keys = {l.split("=", 1)[0] for l in lines if "=" in l}
+    for key, value in desired.items():
+        if key in existing_keys:
+            lines = [f'{key}="{value}"' if l.startswith(f"{key}=") else l for l in lines]
+        else:
+            lines.append(f'{key}="{value}"')
+    path.write_text("\n".join(lines) + "\n")
+
+
+def op_configure_nvidia_vaapi(req: dict, log: list[str]) -> None:
+    """
+    NVIDIA's proprietary driver has no native VA-API support — mesa-va-drivers
+    (the fix for AMD/Intel) does nothing for it. The real fix is the
+    nvidia-vaapi-driver bridge (NVDEC underneath), plus environment variables
+    apps need set before libva will find it:
+
+      - LIBVA_DRIVER_NAME=nvidia, NVD_BACKEND=direct (driver 525+) so libva
+        finds the bridge at all.
+      - CUDA_DISABLE_PERF_BOOST=1, but ONLY on driver 580.105.08 or newer —
+        this works around the bridge sometimes using *more* power than
+        plain CPU decode, a known NVIDIA driver limitation, not something
+        worth applying blindly on older drivers where it isn't documented
+        to do anything.
+
+    This bridge only ever does decoding, never encoding (NVENC is a
+    separate, already-working path), and is really only reliable in
+    Firefox/Chrome — VLC and mpv are known to behave inconsistently with it.
+    That's communicated to the person in the UI, not hidden here.
+
+    /etc/environment is updated idempotently via _merge_environment_file —
+    re-running this is always safe, it won't duplicate or lose lines.
+    """
+    sh(["apt-get", "update"], log, timeout=300)
+    sh(["apt-get", "install", "-y", "nvidia-vaapi-driver", "vainfo"], log, timeout=600)
+
+    desired = {"LIBVA_DRIVER_NAME": "nvidia", "NVD_BACKEND": "direct"}
+    version = _nvidia_driver_version(log)
+    if version and version >= (580, 105, 8):
+        desired["CUDA_DISABLE_PERF_BOOST"] = "1"
+        log.append(f"Driver {'.'.join(map(str, version))} >= 580.105.08 — "
+                   f"applying the CUDA_DISABLE_PERF_BOOST=1 power workaround.")
+    elif version:
+        log.append(f"Driver {'.'.join(map(str, version))} is older than 580.105.08 — "
+                   f"skipping CUDA_DISABLE_PERF_BOOST (not documented to help below that version).")
+    else:
+        log.append("Could not determine the installed driver version — "
+                   "skipping the CUDA_DISABLE_PERF_BOOST workaround to be safe.")
+
+    _merge_environment_file(Path("/etc/environment"), desired)
+    log.append(f"Updated /etc/environment with {desired} — apps other than this one "
+               f"need a fresh login session to pick this up.")
+    record_history({"action": "configure_nvidia_vaapi", "label": req.get("label", "NVIDIA VA-API (video decode)")})
+
+
+def op_set_nvidia_vaapi_backend(req: dict, log: list[str]) -> None:
+    """
+    Deliberately narrow: writes exactly one of two enum-validated values to
+    NVD_BACKEND in /etc/environment, nothing else. Used when the GUI's own
+    probe has already determined (by actually testing both backends) that
+    Direct fails on this hardware but EGL works — this just persists that
+    finding so real apps pick it up too, after a fresh login.
+    """
+    backend = req.get("backend")
+    if backend not in ("egl", "direct"):
+        raise HelperError(f"Invalid backend: {backend!r} (must be 'egl' or 'direct')")
+    _merge_environment_file(Path("/etc/environment"), {"NVD_BACKEND": backend})
+    log.append(f"Set NVD_BACKEND={backend} in /etc/environment — "
+               f"apps need a fresh login session to pick this up.")
+    record_history({"action": "set_nvidia_vaapi_backend", "backend": backend,
+                     "label": req.get("label", f"Switch NVIDIA VA-API backend to {backend}")})
+
+
+def op_add_repo_and_install(req: dict, log: list[str]) -> None:
+    repo_id = req.get("repo_id")
+    if repo_id not in REPO_CATALOG:
+        raise HelperError(f"Unknown repo_id: {repo_id}")
+    repo = REPO_CATALOG[repo_id]
+    sh(["apt-get", "install", "-y", "ca-certificates", "curl", "gnupg"], log, timeout=300)
+
+    key_path = Path(repo["key_path"])
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        key_file = Path(tmp) / "key"
+        urllib.request.urlretrieve(repo["key_url"], key_file)
+        if repo.get("key_is_asc"):
+            sh(["gpg", "--dearmor", "-o", str(key_path), str(key_file)], log)
+        else:
+            key_path.write_bytes(key_file.read_bytes())
+
+    codename = ubuntu_codename(log)
+    Path(repo["list_path"]).write_text(repo["list_content_tpl"].format(codename=codename) + "\n")
+
+    # Some vendors' packages (Firefox in particular) need an explicit pin to
+    # actually take priority over an existing Ubuntu transitional package
+    # (the one that pulls in the snap) -- adding the repo alone isn't enough.
+    # Written BEFORE apt-get update/install so it's already active for the
+    # very first install, not just future upgrades.
+    if repo.get("preference_path") and repo.get("preference_content"):
+        pref_path = Path(repo["preference_path"])
+        pref_path.parent.mkdir(parents=True, exist_ok=True)
+        pref_path.write_text(repo["preference_content"])
+        log.append(f"Wrote apt preference pin to {pref_path}")
+
+    sh(["apt-get", "update"], log, timeout=300)
+    sh(["apt-get", "install", "-y"] + repo["packages"], log, timeout=1800)
+    record_history({"action": "add_repo_and_install", "repo_id": repo_id, "label": req.get("label", "")})
+
+
+def op_install_release_app(req: dict, log: list[str]) -> None:
+    app_id = req.get("app_id")
+    if app_id not in RELEASE_APP_CATALOG:
+        raise HelperError(f"Unknown app_id: {app_id}")
+    cat = RELEASE_APP_CATALOG[app_id]
+    api_url = f"https://api.github.com/repos/{cat['repo']}/releases/latest"
+    req_obj = urllib.request.Request(api_url, headers={"User-Agent": "griffin-persona"})
+    with urllib.request.urlopen(req_obj, timeout=20) as resp:
+        data = json.loads(resp.read())
+    asset = next((a for a in data.get("assets", []) if re.match(cat["asset_re"], a["name"])), None)
+    if not asset:
+        raise HelperError(f"No matching release asset found for {app_id}")
+    with tempfile.TemporaryDirectory() as tmp:
+        deb_path = Path(tmp) / asset["name"]
+        urllib.request.urlretrieve(asset["browser_download_url"], deb_path)
+        sh(["apt-get", "install", "-y", str(deb_path)], log, timeout=600)
+    record_history({"action": "install_release_app", "app_id": app_id, "label": req.get("label", "")})
+
+
+def op_toggle_snap(req: dict, log: list[str]) -> None:
+    enable = bool(req.get("enable"))
+    if enable:
+        sh(["apt-get", "install", "-y", "snapd"], log, timeout=600)
+    else:
+        sh(["apt-get", "purge", "-y", "snapd"], log, timeout=600)
+    record_history({"action": "toggle_snap", "enable": enable, "label": req.get("label", "")})
+
+
+def op_clear_hw_flag(req: dict, log: list[str]) -> None:
+    if HW_FLAG.exists():
+        HW_FLAG.unlink()
+    log.append("Cleared hardware-changed flag.")
+
+
+def op_rollback(req: dict, log: list[str]) -> None:
+    """Undo a specific history entry by index (apt_install/add_repo_and_install only)."""
+    index = req.get("history_index")
+    if not HISTORY_FILE.exists():
+        raise HelperError("No history to roll back.")
+    history = json.loads(HISTORY_FILE.read_text())
+    if index is None or not (0 <= index < len(history)):
+        raise HelperError("Invalid history index.")
+    entry = history[index]
+    if entry["action"] == "apt_install":
+        packages = validate_packages(entry["packages"])
+        sh(["apt-get", "remove", "-y"] + packages, log, timeout=600)
+    elif entry["action"] == "add_repo_and_install":
+        repo = REPO_CATALOG.get(entry["repo_id"])
+        if repo:
+            sh(["apt-get", "remove", "-y"] + repo["packages"], log, timeout=600)
+            Path(repo["list_path"]).unlink(missing_ok=True)
+    else:
+        raise HelperError(f"Don't know how to roll back action: {entry['action']}")
+    entry["rolled_back"] = True
+    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+
+
+DISPATCH = {
+    "apt_install": op_apt_install,
+    "apt_remove": op_apt_remove,
+    "enable_i386": op_enable_i386,
+    "install_nvidia_driver_auto": op_install_nvidia_driver_auto,
+    "configure_nvidia_vaapi": op_configure_nvidia_vaapi,
+    "set_nvidia_vaapi_backend": op_set_nvidia_vaapi_backend,
+    "add_repo_and_install": op_add_repo_and_install,
+    "install_release_app": op_install_release_app,
+    "toggle_snap": op_toggle_snap,
+    "clear_hw_flag": op_clear_hw_flag,
+    "rollback": op_rollback,
+}
+
+
+def main() -> int:
+    log: list[str] = []
+    if os.geteuid() != 0:
+        print(json.dumps({"ok": False, "log": "", "error": "Helper must run as root."}))
+        return 1
+    if len(sys.argv) != 2:
+        print(json.dumps({"ok": False, "log": "", "error": "Expected exactly one JSON argument."}))
+        return 1
+    try:
+        request = json.loads(sys.argv[1])
+        action = request.get("action")
+        handler = DISPATCH.get(action)
+        if handler is None:
+            raise HelperError(f"Unknown action: {action}")
+        handler(request, log)
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        os.chmod(STATE_DIR, 0o755)
+        print(json.dumps({"ok": True, "log": "\n".join(log), "error": ""}))
+        return 0
+    except HelperError as e:
+        print(json.dumps({"ok": False, "log": "\n".join(log), "error": str(e)}))
+        return 1
+    except Exception as e:  # noqa: BLE001 - always report, never crash silently
+        print(json.dumps({"ok": False, "log": "\n".join(log), "error": f"Unexpected error: {e}"}))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

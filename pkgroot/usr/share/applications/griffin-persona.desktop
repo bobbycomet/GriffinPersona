@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Griffin Persona
+Comment=Griffin Linux post-install configuration center
+Exec=/usr/bin/griffin-persona
+Icon=griffin-persona
+Terminal=false
+Categories=System;Settings;
+StartupWMClass=griffin-persona

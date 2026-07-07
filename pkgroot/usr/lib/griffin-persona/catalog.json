@@ -1,0 +1,188 @@
+{
+  "_comment": "Single source of truth for griffin-persona-helper's allow-lists. The GUI (griffin_persona/catalog.py) and the privileged helper both load this exact file. Once installed by the .deb it lives under /usr/lib (root:root, mode 0644) so an unprivileged, even compromised, GUI process cannot modify it -- the helper's trust does not depend on where the file lives, only on its filesystem permissions.",
+  "allowed_packages": [
+    "aria2",
+    "audacity",
+    "bleachbit",
+    "blender",
+    "brave-browser",
+    "btrfs-assistant",
+    "btrfs-progs",
+    "build-essential",
+    "cabextract",
+    "celluloid",
+    "corectrl",
+    "curl",
+    "earlyoom",
+    "easyeffects",
+    "falkon",
+    "ffmpeg",
+    "firefox",
+    "firmware-amd-graphics",
+    "flatpak",
+    "fontconfig",
+    "fwupd",
+    "gamemode",
+    "gamescope",
+    "gimp",
+    "git",
+    "gnome-firmware",
+    "godot3",
+    "goverlay",
+    "gparted",
+    "handbrake",
+    "imagemagick",
+    "inkscape",
+    "intel-media-va-driver-non-free",
+    "kdenlive",
+    "krita",
+    "libgl1-mesa-dri",
+    "libnvidia-encode1",
+    "libspa-0.2-bluetooth",
+    "libvulkan1",
+    "libvulkan1:i386",
+    "lutris",
+    "mangohud",
+    "mesa-va-drivers",
+    "mesa-vulkan-drivers",
+    "mesa-vulkan-drivers:i386",
+    "moonlight-qt",
+    "mpv",
+    "net-tools",
+    "network-manager-openvpn",
+    "nodejs",
+    "npm",
+    "nvidia-cuda-toolkit",
+    "nvidia-driver-550",
+    "nvidia-prime",
+    "nvidia-settings",
+    "nvidia-vaapi-driver",
+    "obs-studio",
+    "openrgb",
+    "openssh-server",
+    "openvpn",
+    "p7zip-full",
+    "pavucontrol",
+    "pipewire",
+    "pipewire-jack",
+    "pipewire-pulse",
+    "pitivi",
+    "preload",
+    "protontricks",
+    "python3",
+    "python3-pip",
+    "python3-venv",
+    "qbittorrent",
+    "rocm-smi",
+    "shotcut",
+    "snapd",
+    "soundconverter",
+    "stacer",
+    "steam-devices",
+    "steam-installer",
+    "switcheroo-control",
+    "timeshift",
+    "tlp",
+    "tlp-rdw",
+    "ubuntu-drivers-common",
+    "unzip",
+    "vainfo",
+    "vivaldi-stable",
+    "vkmark",
+    "vlc",
+    "vulkan-tools",
+    "wget",
+    "wine",
+    "winetricks",
+    "wireguard",
+    "wireplumber",
+    "yt-dlp",
+    "zram-tools"
+  ],
+  "repos": {
+    "winehq-staging": {
+      "key_url": "https://dl.winehq.org/wine-builds/winehq.key",
+      "key_path": "/usr/share/keyrings/winehq-archive.key",
+      "list_content_tpl": "deb [signed-by=/usr/share/keyrings/winehq-archive.key] https://dl.winehq.org/wine-builds/ubuntu/ {codename} main",
+      "list_path": "/etc/apt/sources.list.d/winehq.sources.list",
+      "packages": [
+        "winehq-staging"
+      ]
+    },
+    "winehq-stable": {
+      "key_url": "https://dl.winehq.org/wine-builds/winehq.key",
+      "key_path": "/usr/share/keyrings/winehq-archive.key",
+      "list_content_tpl": "deb [signed-by=/usr/share/keyrings/winehq-archive.key] https://dl.winehq.org/wine-builds/ubuntu/ {codename} main",
+      "list_path": "/etc/apt/sources.list.d/winehq.sources.list",
+      "packages": [
+        "winehq-stable"
+      ]
+    },
+    "vscode": {
+      "key_url": "https://packages.microsoft.com/keys/microsoft.asc",
+      "key_path": "/usr/share/keyrings/microsoft.gpg",
+      "list_content_tpl": "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main",
+      "list_path": "/etc/apt/sources.list.d/vscode.list",
+      "packages": [
+        "code"
+      ],
+      "key_is_asc": true
+    },
+    "docker": {
+      "key_url": "https://download.docker.com/linux/ubuntu/gpg",
+      "key_path": "/usr/share/keyrings/docker.gpg",
+      "list_content_tpl": "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {codename} stable",
+      "list_path": "/etc/apt/sources.list.d/docker.list",
+      "packages": [
+        "docker-ce",
+        "docker-ce-cli",
+        "containerd.io"
+      ],
+      "key_is_asc": true
+    },
+    "firefox-mozilla": {
+      "key_url": "https://packages.mozilla.org/apt/repo-signing-key.gpg",
+      "key_path": "/etc/apt/keyrings/packages.mozilla.org.asc",
+      "list_content_tpl": "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main",
+      "list_path": "/etc/apt/sources.list.d/mozilla.list",
+      "packages": [
+        "firefox"
+      ],
+      "preference_path": "/etc/apt/preferences.d/mozilla",
+      "preference_content": "Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n"
+    },
+    "brave-browser": {
+      "key_url": "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg",
+      "key_path": "/usr/share/keyrings/brave-browser-archive-keyring.gpg",
+      "list_content_tpl": "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main",
+      "list_path": "/etc/apt/sources.list.d/brave-browser-release.list",
+      "packages": [
+        "brave-browser"
+      ]
+    },
+    "vivaldi": {
+      "key_url": "https://repo.vivaldi.com/archive/linux_signing_key.pub",
+      "key_path": "/usr/share/keyrings/vivaldi-archive-keyring.gpg",
+      "list_content_tpl": "deb [signed-by=/usr/share/keyrings/vivaldi-archive-keyring.gpg] https://repo.vivaldi.com/archive/deb stable main",
+      "list_path": "/etc/apt/sources.list.d/vivaldi.list",
+      "packages": [
+        "vivaldi-stable"
+      ],
+      "key_is_asc": true
+    }
+  },
+  "release_apps": {
+    "lact": {
+      "repo": "ilya-zlobintsev/LACT",
+      "asset_re": ".*\\.deb$"
+    },
+    "sunshine": {
+      "repo": "LizardByte/Sunshine",
+      "asset_re": "sunshine.*ubuntu.*\\.deb$"
+    },
+    "opentabletdriver": {
+      "repo": "OpenTabletDriver/OpenTabletDriver",
+      "asset_re": "opentabletdriver_.*_x64\\.deb$"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Griffin Persona (first boot)
+Comment=First-boot welcome and configuration for Griffin Linux
+Exec=/usr/bin/griffin-persona --autostart
+Icon=griffin-persona
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
