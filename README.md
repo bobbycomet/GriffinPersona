@@ -193,10 +193,28 @@ Or use your package installer or Gdebi
 <img width="1920" height="1080" alt="Screenshot_20260707_093730" src="https://github.com/user-attachments/assets/8118507b-6821-41c8-9b16-1396233e9d7f" />
 <img width="1920" height="1080" alt="Screenshot_20260707_093737" src="https://github.com/user-attachments/assets/e3081645-2754-4d13-9a89-9db192a0c621" />
 
+Griffin Persona is licensed under the GPLv3, and forks and derivative projects are welcome.
+
+If you build on Griffin Persons, please:
+
+- Keep the GPLv3 license terms intact.
+- Give appropriate credit to the original Griffin Persona project.
+- Include a link back to this repository where practical.
+
+If you're building something cool with it, I'd love to hear about it!
+
+## Community and Support
+
+- **Discord:** [Join Here](https://discord.gg/7fEt5W7DPh)
+- **Patreon (Beta Builds):** [Patreon](https://www.patreon.com/c/BobbyComet/membership)
+- **Support the Griffin Project:** [Ko-fi](https://ko-fi.com/bobby60908)
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/bobbycomet/Appify/main/Griffin-G.png" alt="Griffin Linux" width="15%"/>
   <p><strong>Griffin Linux. Where power meets simplicity.</strong><br/>
   Made with Windows switchers in mind. Built for everyone who wants a better PC.</p>
 </div>
 
-Griffin Persona is part of the Griffin Linux project. The name Griffin Persona, the Griffin Linux name, and associated icons are protected under the GPLv3 to preserve the integrity of the branding in all distributed versions.
+The Griffin Persona and Griffin Linux names, logos, and branding are not covered by the GPL license and may not be used to imply endorsement 
+or official affiliation without permission. Forks are encouraged, but please rename and rebrand modified versions unless you've 
+received permission to use the original branding.
