@@ -195,7 +195,7 @@ Or use your package installer or Gdebi
 
 Griffin Persona is licensed under the GPLv3, and forks and derivative projects are welcome.
 
-If you build on Griffin Persons, please:
+If you build on Griffin Persona, please:
 
 - Keep the GPLv3 license terms intact.
 - Give appropriate credit to the original Griffin Persona project.
