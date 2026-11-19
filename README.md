@@ -7,6 +7,7 @@
 
 * **First Boot:** Launches automatically to guide your initial setup.
 * **Subsequent Boots:** Behaves as a standard system application whenever you need to adjust your setup.
+* **AppImage** works as an app with no first boot.
 
 > **Note:** Griffin Persona sets up your workflow environments but does not install or update core Griffin system tools. For tool updates, please use [Griffin Updater](https://github.com/bobbycomet/GriffinUpdater).
 
